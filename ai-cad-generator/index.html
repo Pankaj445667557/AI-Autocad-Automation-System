@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CAD Generator - Automated SolidWorks Model Generation</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+              950: '#082f49',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Local and CDN Fallbacks for Three.js and Tooling -->
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script src="STLExporter.js"></script>
+  <script src="lucide.min.js"></script>
+
+  <!-- Custom CAD Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-[#070b14] text-slate-100 flex flex-col min-h-screen">
+
+  <!-- ========================================================
+       TOP ENGINEERING STATUS & POSITIONING HEADER
+       ======================================================== -->
+  <header class="bg-[#0b1120]/90 backdrop-blur border-b border-sky-500/20 sticky top-0 z-40 px-4 lg:px-6 py-2.5">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Project Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-sky-400/40">
+          <i data-lucide="cpu" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-lg text-white tracking-tight flex items-center gap-2">
+              AI CAD Generator
+              <span class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                PROTOTYPE v2.4
+              </span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Generate 3D CAD models from simple product requirements using SolidWorks API</p>
+        </div>
+      </div>
+
+      <!-- System Telemetry Status Badges -->
+      <div class="flex items-center gap-2 sm:gap-4 text-xs font-mono">
+        <!-- AI Engine -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+          <span class="status-dot online"></span>
+          <span class="text-slate-400 hidden md:inline">AI Engine:</span>
+          <span class="text-emerald-400 font-medium">Online</span>
+        </div>
+
+        <!-- CAD Engine -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+          <span class="status-dot simulated"></span>
+          <span class="text-slate-400 hidden md:inline">CAD Engine:</span>
+          <span class="text-sky-400 font-medium">Ready</span>
+        </div>
+
+        <!-- SolidWorks API -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+          <span class="status-dot online"></span>
+          <span class="text-slate-400 hidden md:inline">SolidWorks API:</span>
+          <span class="text-cyan-300 font-medium">Connected</span>
+        </div>
+
+        <!-- Create New Model CTA -->
+        <button onclick="UI.switchView('create')" class="btn-cad-primary px-3 py-1.5 rounded-lg text-xs font-semibold">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+          <span>Create New Model</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Engineering Disclaimer Banner -->
+    <div class="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+      <div class="flex items-center gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 text-sky-400 shrink-0"></i>
+        <span>
+          <strong class="text-slate-300">Engineering Automation Layer:</strong>
+          This application converts design intent into geometric parameters and executes automated generation via SolidWorks API COM dispatch. It is an automation tool, not a replacement for full CAD suites (SolidWorks, CATIA, AutoCAD).
+        </span>
+      </div>
+      <div class="hidden lg:flex items-center gap-3 font-mono text-[11px] text-slate-500">
+        <span>HOST: WIN64</span>
+        <span>RPC: ACTIVE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Responsive Navigation Strip -->
+  <div class="flex md:hidden overflow-x-auto py-2 px-3 gap-2 bg-[#090e1c] border-b border-slate-800 text-xs no-scrollbar shrink-0">
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="dashboard">Dashboard</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="create">Create Model</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="ai-input">AI Input</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="preview">3D Studio</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="history">History</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="solidworks">SolidWorks API</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="architecture">Architecture</button>
+    <button class="sidebar-nav-btn px-3 py-1.5 rounded-lg whitespace-nowrap bg-slate-800 text-slate-200" data-view="settings">Settings</button>
+  </div>
+
+  <!-- ========================================================
+       MAIN APP WORKSPACE (SIDEBAR + CONTENT VIEWS)
+       ======================================================== -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-[#0a0f1d] border-r border-slate-800/80 flex flex-col justify-between shrink-0 hidden md:flex">
+      <div class="p-3 space-y-1">
+        <div class="px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+          Navigation
+        </div>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="dashboard">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 text-sky-400"></i>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="create">
+          <i data-lucide="box" class="w-4 h-4 text-sky-400"></i>
+          <span>Create Model</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="ai-input">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+          <span>AI Natural Language</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="preview">
+          <i data-lucide="view" class="w-4 h-4 text-sky-400"></i>
+          <span>3D Model Studio</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="history">
+          <i data-lucide="history" class="w-4 h-4 text-sky-400"></i>
+          <span>Generation History</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="solidworks">
+          <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+          <span>SolidWorks Integration</span>
+        </button>
+
+        <div class="pt-3 px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+          Documentation
+        </div>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="architecture">
+          <i data-lucide="git-branch" class="w-4 h-4 text-indigo-400"></i>
+          <span>System Architecture</span>
+        </button>
+
+        <button class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all border border-transparent" data-view="settings">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+          <span>Settings & Config</span>
+        </button>
+      </div>
+
+      <!-- Quick Session Info Box -->
+      <div class="p-3 border-t border-slate-800/80 bg-slate-950/40">
+        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono space-y-1">
+          <div class="text-slate-400 flex justify-between">
+            <span>SW Session:</span>
+            <span class="text-emerald-400">SIMULATED</span>
+          </div>
+          <div class="text-slate-400 flex justify-between">
+            <span>Active Doc:</span>
+            <span id="spec-doc-name" class="text-sky-300 truncate max-w-[110px]">GEAR_20T.SLDPRT</span>
+          </div>
+          <div class="text-slate-400 flex justify-between">
+            <span>Unit:</span>
+            <span class="text-amber-400 uppercase">MMGS</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Dynamic Views -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#070b14]">
+
+      <!-- ========================================================
+           VIEW 1: DASHBOARD
+           ======================================================== -->
+      <section id="view-dashboard" class="view-section space-y-6">
+        
+        <!-- Welcome Banner -->
+        <div class="cad-card p-6 rounded-2xl relative overflow-hidden bg-gradient-to-r from-sky-950/40 via-slate-900 to-indigo-950/30 border border-sky-500/20">
+          <div class="relative z-10 max-w-2xl">
+            <span class="px-2.5 py-1 rounded-md text-xs font-mono font-medium bg-sky-500/20 text-sky-400 border border-sky-400/30 mb-3 inline-block">
+              Mechanical Engineering Automation Project
+            </span>
+            <h2 class="text-2xl lg:text-3xl font-bold text-white mb-2 tracking-tight">
+              AI-Based Automated CAD Model Generation
+            </h2>
+            <p class="text-sm text-slate-300 mb-5 leading-relaxed">
+              Transform engineering requirements and natural-language specifications into production-ready SolidWorks 3D CAD parts using the parametric SolidWorks COM API.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button onclick="UI.switchView('create')" class="btn-cad-primary px-4 py-2 rounded-xl text-sm font-semibold">
+                <i data-lucide="play" class="w-4 h-4"></i>
+                <span>Launch Model Generator</span>
+              </button>
+              <button onclick="UI.switchView('ai-input')" class="btn-cad-secondary px-4 py-2 rounded-xl text-sm font-semibold">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+                <span>Try Natural Language Prompt</span>
+              </button>
+              <button onclick="UI.switchView('architecture')" class="btn-cad-secondary px-4 py-2 rounded-xl text-sm font-semibold">
+                <i data-lucide="file-code" class="w-4 h-4 text-indigo-400"></i>
+                <span>View Viva Architecture</span>
+              </button>
+            </div>
+          </div>
+          <div class="absolute right-6 -bottom-8 opacity-15 pointer-events-none hidden lg:block">
+            <i data-lucide="cog" class="w-72 h-72 text-sky-400"></i>
+          </div>
+        </div>
+
+        <!-- Telemetry & Model Statistics -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="cad-card p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+              <span>Total Models Generated</span>
+              <i data-lucide="database" class="w-4 h-4 text-sky-400"></i>
+            </div>
+            <div id="stat-total-models" class="text-2xl font-bold font-mono text-white">4</div>
+            <span class="text-[11px] text-emerald-400 font-mono flex items-center gap-1 mt-1">
+              <i data-lucide="trending-up" class="w-3 h-3"></i> 100% CAD synthesis rate
+            </span>
+          </div>
+
+          <div class="cad-card p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+              <span>Avg Generation Time</span>
+              <i data-lucide="timer" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <div id="stat-avg-time" class="text-2xl font-bold font-mono text-white">1.48s</div>
+            <span class="text-[11px] text-slate-400 font-mono mt-1 block">SolidWorks COM latency</span>
+          </div>
+
+          <div class="cad-card p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+              <span>Generation Success Rate</span>
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400"></i>
+            </div>
+            <div id="stat-success-rate" class="text-2xl font-bold font-mono text-white">100%</div>
+            <span class="text-[11px] text-emerald-400 font-mono mt-1 block">Zero CSG kernel faults</span>
+          </div>
+
+          <div class="cad-card p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+              <span>SolidWorks API Calls</span>
+              <i data-lucide="activity" class="w-4 h-4 text-indigo-400"></i>
+            </div>
+            <div id="stat-api-calls" class="text-2xl font-bold font-mono text-white">74</div>
+            <span class="text-[11px] text-sky-400 font-mono mt-1 block">Active RPC connections</span>
+          </div>
+        </div>
+
+        <!-- Quick Launch Component Grid -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider font-mono">Supported Mechanical Components</h3>
+            <span class="text-xs text-slate-400">Click a card to generate CAD parameters</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+            <div onclick="state.selectedProduct='gear'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="cog" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Gear</div>
+              <div class="text-[10px] text-slate-400 font-mono">Spur / Involute</div>
+            </div>
+
+            <div onclick="state.selectedProduct='bolt'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="wrench" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Bolt</div>
+              <div class="text-[10px] text-slate-400 font-mono">Hex / Socket</div>
+            </div>
+
+            <div onclick="state.selectedProduct='screw'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="crosshair" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Screw</div>
+              <div class="text-[10px] text-slate-400 font-mono">Machine / Pan</div>
+            </div>
+
+            <div onclick="state.selectedProduct='nut'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="circle-dot" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Nut</div>
+              <div class="text-[10px] text-slate-400 font-mono">Hexagonal ISO</div>
+            </div>
+
+            <div onclick="state.selectedProduct='shaft'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="cylinder" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Shaft</div>
+              <div class="text-[10px] text-slate-400 font-mono">Stepped Keyway</div>
+            </div>
+
+            <div onclick="state.selectedProduct='cylinder'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="box" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Cylinder</div>
+              <div class="text-[10px] text-slate-400 font-mono">Hydraulic Barrel</div>
+            </div>
+
+            <div onclick="state.selectedProduct='flange'; UI.renderDynamicForm(); UI.renderActive3DModel(); UI.switchView('create');" class="cad-card cad-card-interactive p-3 rounded-xl border border-slate-800 text-center">
+              <div class="w-9 h-9 mx-auto rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2">
+                <i data-lucide="disc" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs font-semibold text-white">Flange</div>
+              <div class="text-[10px] text-slate-400 font-mono">Pipe PCD Disc</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Models Preview & Architecture Teaser -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 cad-card p-5 rounded-2xl border border-slate-800">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-sm text-slate-100 flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-sky-400"></i>
+                Recent Generation History
+              </h3>
+              <button onclick="UI.switchView('history')" class="text-xs text-sky-400 hover:underline">View All History &rarr;</button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400">
+                    <th class="py-2 px-3">Model</th>
+                    <th class="py-2 px-3">Type</th>
+                    <th class="py-2 px-3">Dimensions</th>
+                    <th class="py-2 px-3">Date</th>
+                    <th class="py-2 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                  <tr class="hover:bg-slate-800/30">
+                    <td class="py-2.5 px-3 text-sky-400 font-semibold">Gear_20T</td>
+                    <td class="py-2.5 px-3 text-slate-300">Gear</td>
+                    <td class="py-2.5 px-3 text-slate-400">100 × 20 mm</td>
+                    <td class="py-2.5 px-3 text-slate-400">Today</td>
+                    <td class="py-2.5 px-3 text-emerald-400">Generated</td>
+                  </tr>
+                  <tr class="hover:bg-slate-800/30">
+                    <td class="py-2.5 px-3 text-sky-400 font-semibold">Screw_M10</td>
+                    <td class="py-2.5 px-3 text-slate-300">Screw</td>
+                    <td class="py-2.5 px-3 text-slate-400">10 × 50 mm</td>
+                    <td class="py-2.5 px-3 text-slate-400">Today</td>
+                    <td class="py-2.5 px-3 text-emerald-400">Generated</td>
+                  </tr>
+                  <tr class="hover:bg-slate-800/30">
+                    <td class="py-2.5 px-3 text-sky-400 font-semibold">Bolt_Hex_M16</td>
+                    <td class="py-2.5 px-3 text-slate-300">Bolt</td>
+                    <td class="py-2.5 px-3 text-slate-400">16 × 80 mm</td>
+                    <td class="py-2.5 px-3 text-slate-400">Yesterday</td>
+                    <td class="py-2.5 px-3 text-emerald-400">Generated</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SolidWorks Integration Telemetry Card -->
+          <div class="cad-card p-5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono uppercase text-slate-400">COM Server</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Connected</span>
+              </div>
+              <h4 class="font-semibold text-slate-100 text-sm mb-1">SolidWorks API Bridge</h4>
+              <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                Python <code class="text-sky-300">win32com.client</code> dispatching calls directly to <code class="text-sky-300">SldWorks.Application</code> COM type library.
+              </p>
+              <div class="space-y-2 text-xs font-mono">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Target Document:</span>
+                  <span class="text-slate-200">.SLDPRT (Part)</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Interface Version:</span>
+                  <span class="text-slate-200">SolidWorks 2024</span>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="text-slate-400">Feature Generator:</span>
+                  <span class="text-emerald-400">Active</span>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="UI.switchView('solidworks')" class="w-full mt-4 btn-cad-secondary py-2 rounded-xl text-xs font-semibold">
+              <i data-lucide="code" class="w-3.5 h-3.5"></i>
+              <span>Inspect API Automation Script</span>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 2: CREATE MODEL (PRODUCT SELECTION & PARAMETERS)
+           ======================================================== -->
+      <section id="view-create" class="view-section hidden space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <i data-lucide="sliders" class="w-5 h-5 text-sky-400"></i>
+              Parametric CAD Model Generator
+            </h2>
+            <p class="text-xs text-slate-400">Select mechanical component and specify engineering dimensions</p>
+          </div>
+
+          <!-- Unit Selector -->
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800">
+            <span class="text-xs text-slate-400 px-2 font-mono">Units:</span>
+            <button class="unit-toggle-btn px-2.5 py-1 text-xs font-mono font-medium rounded-lg bg-sky-600 text-white transition-all" data-unit="mm">mm</button>
+            <button class="unit-toggle-btn px-2.5 py-1 text-xs font-mono font-medium rounded-lg text-slate-400 hover:text-white transition-all" data-unit="cm">cm</button>
+            <button class="unit-toggle-btn px-2.5 py-1 text-xs font-mono font-medium rounded-lg text-slate-400 hover:text-white transition-all" data-unit="inch">inch</button>
+          </div>
+        </div>
+
+        <!-- 1. Product Selection Grid -->
+        <div>
+          <label class="block text-xs font-mono uppercase text-slate-400 mb-2 font-semibold">Step 1: Select Mechanical Component Type</label>
+          <div id="product-cards-grid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <!-- Populated dynamically by UI.renderProductsGrid() -->
+          </div>
+        </div>
+
+        <!-- 2. Dynamic Input Fields + 2D Schematic Preview -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Parameters Form Column -->
+          <div class="lg:col-span-5 cad-card p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 class="font-semibold text-sm text-slate-100 flex items-center gap-2">
+                <i data-lucide="edit-3" class="w-4 h-4 text-sky-400"></i>
+                Dimension Inputs
+              </h3>
+              <span class="text-xs font-mono text-slate-400">Real-time Validation</span>
+            </div>
+
+            <!-- Dynamic Input Fields injected here -->
+            <div id="dynamic-dimensions-form" class="space-y-3.5">
+              <!-- Dynamically populated by UI.renderDynamicForm() -->
+            </div>
+
+            <!-- Prompt Shortcut -->
+            <div class="pt-2 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+              <span>Prefer typing in plain English?</span>
+              <button onclick="UI.switchView('ai-input')" class="text-sky-400 hover:underline flex items-center gap-1 font-medium">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> AI Input &rarr;
+              </button>
+            </div>
+          </div>
+
+          <!-- 2D Schematic Callout & Generation Action Column -->
+          <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- 2D Dimension Schematic Canvas Card -->
+            <div class="cad-card p-5 rounded-2xl border border-slate-800 flex-1 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-sm text-slate-100 flex items-center gap-2">
+                  <i data-lucide="ruler" class="w-4 h-4 text-sky-400"></i>
+                  Technical Dimension Schematic
+                </h3>
+                <span class="text-[11px] font-mono text-slate-400">Engineering 2D Cross-Section</span>
+              </div>
+              
+              <div class="w-full flex-1 flex items-center justify-center">
+                <canvas id="schematic-canvas"></canvas>
+              </div>
+
+              <div class="mt-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                  <span>SolidWorks CSG Feature Tree mapped for automated extrusion</span>
+                </div>
+                <span class="font-mono text-sky-400 text-[11px]">MMGS Standard</span>
+              </div>
+            </div>
+
+            <!-- Big Generate 3D Model CTA Card -->
+            <div class="cad-card p-6 rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/30 via-slate-900 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h4 class="font-bold text-white text-base flex items-center gap-2">
+                  <i data-lucide="play-circle" class="w-5 h-5 text-sky-400"></i>
+                  Execute SolidWorks CAD Automation
+                </h4>
+                <p class="text-xs text-slate-400 mt-1">Dispatches COM calls to synthesize the 3D model, rebuild geometry, and export .SLDPRT</p>
+              </div>
+              <button id="btn-generate-model" class="btn-cad-primary px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-sky-500/20 whitespace-nowrap">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>Generate 3D Model</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 3: AI NATURAL LANGUAGE INPUT
+           ======================================================== -->
+      <section id="view-ai-input" class="view-section hidden space-y-6">
+        
+        <div>
+          <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i>
+            Natural Language Parameter Extraction
+          </h2>
+          <p class="text-xs text-slate-400">Describe mechanical requirements in simple English and let AI extract dimensional CAD parameters</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Prompt Input Column -->
+          <div class="lg:col-span-7 space-y-4">
+            <div class="cad-card p-5 rounded-2xl border border-slate-800 space-y-3">
+              <label for="nlp-prompt-input" class="block font-semibold text-sm text-slate-200">
+                Describe Your Model:
+              </label>
+
+              <div class="relative">
+                <textarea id="nlp-prompt-input" rows="4"
+                  placeholder="e.g., Create a gear with 20 teeth, 100 mm outer diameter, 30 mm bore and 20 mm thickness."
+                  class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 font-sans resize-none"></textarea>
+              </div>
+
+              <!-- Quick Prompt Template Chips -->
+              <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 block mb-2 font-medium">Quick Example Prompts:</span>
+                <div class="flex flex-wrap gap-2">
+                  <button class="nlp-example-chip px-2.5 py-1 rounded-lg text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-all"
+                    data-prompt="Create a gear with 20 teeth, 100 mm outer diameter, 30 mm bore and 20 mm thickness.">
+                    ⚙️ Gear: 20 teeth, 100mm OD, 30mm bore
+                  </button>
+                  <button class="nlp-example-chip px-2.5 py-1 rounded-lg text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-all"
+                    data-prompt="Hex bolt with M12 diameter, 70 mm length, 1.75 mm thread pitch.">
+                    🔩 Bolt: M12 x 70mm hex bolt
+                  </button>
+                  <button class="nlp-example-chip px-2.5 py-1 rounded-lg text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-all"
+                    data-prompt="Pipe flange with 220 mm outer diameter, 160 mm PCD, 80 mm bore, and 8 bolt holes.">
+                    ⭕ Flange: 220mm OD, 160mm PCD, 8 holes
+                  </button>
+                  <button class="nlp-example-chip px-2.5 py-1 rounded-lg text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-all"
+                    data-prompt="Machine screw with 6 mm diameter, 40 mm length, countersunk head.">
+                    🪛 Screw: M6 x 40mm countersunk
+                  </button>
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                <span class="text-xs text-slate-400 font-mono">NLP Engine: Token Semantic Analyzer</span>
+                <button id="btn-parse-nlp" class="btn-cad-primary px-5 py-2.5 rounded-xl text-xs font-bold">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i>
+                  <span>Generate Parameters with AI</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- NLP Architecture Callout -->
+            <div class="cad-card p-4 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-2">
+              <div class="font-semibold text-slate-200 flex items-center gap-1.5">
+                <i data-lucide="brain-circuit" class="w-4 h-4 text-sky-400"></i>
+                How the AI Parameter Extraction Works:
+              </div>
+              <p class="leading-relaxed">
+                The NLP pipeline applies tokenization, mechanical entity recognition (NER), and regex heuristics to extract dimensions, quantities, and units. It maps natural language adjectives into standard DIN/ISO/ASME mechanical parameters ready for SolidWorks API invocation.
+              </p>
+            </div>
+          </div>
+
+          <!-- AI Extraction Output Card Column -->
+          <div class="lg:col-span-5">
+            <div id="nlp-result-card" class="cad-card p-5 rounded-2xl border border-sky-500/30 bg-slate-900/90 space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+                  <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+                  AI Parameter Extraction Output
+                </h3>
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  98.7% Confidence
+                </span>
+              </div>
+
+              <!-- Tokens Breakdown -->
+              <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 block mb-1">Identified Entities:</span>
+                <div id="nlp-tokens-container" class="flex flex-wrap gap-1.5">
+                  <span class="nlp-token product">Product: Spur Gear</span>
+                  <span class="nlp-token dimension">Teeth: 20</span>
+                  <span class="nlp-token dimension">OD: 100mm</span>
+                  <span class="nlp-token dimension">Bore: 30mm</span>
+                  <span class="nlp-token unit">Unit: mm</span>
+                </div>
+              </div>
+
+              <!-- Structured AI Output Block -->
+              <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
+                <div class="text-[11px] text-slate-500 uppercase pb-1 border-b border-slate-800/80 mb-1">Structured CAD Schema:</div>
+                <div id="nlp-summary-text">
+                  <div><strong>Product:</strong> Gear</div>
+                  <div><strong>Teeth:</strong> 20</div>
+                  <div><strong>Diameter:</strong> 100 mm</div>
+                  <div><strong>Bore:</strong> 30 mm</div>
+                  <div><strong>Thickness:</strong> 20 mm</div>
+                  <div class="text-emerald-400 mt-1">Status: Parameters extracted successfully</div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="space-y-2 pt-2">
+                <button onclick="UI.triggerGenerationWorkflow()" class="w-full btn-cad-primary py-2.5 rounded-xl text-xs font-bold">
+                  <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                  <span>Generate 3D Model with These Parameters</span>
+                </button>
+                <button onclick="UI.switchView('create')" class="w-full btn-cad-secondary py-2 rounded-xl text-xs font-medium">
+                  <span>Review & Fine-Tune in Form &rarr;</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 4: 3D MODEL STUDIO (THREE.JS VIEWPORT & CONTROLS)
+           ======================================================== -->
+      <section id="view-preview" class="view-section hidden space-y-6">
+        
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <i data-lucide="eye" class="w-5 h-5 text-sky-400"></i>
+              3D CAD Model Preview Studio
+            </h2>
+            <p class="text-xs text-slate-400">Interactive procedural 3D mechanical model with camera views and materials</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-export-stl" class="btn-cad-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Export Real .STL Mesh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- 3D Viewport Column -->
+          <div class="lg:col-span-8 flex flex-col gap-3">
+            
+            <div id="cad-viewport-container" class="relative shadow-2xl">
+              
+              <!-- Top-Left Camera Preset Controls -->
+              <div class="viewport-hud top-3 left-3 flex flex-wrap gap-1.5">
+                <div class="viewport-controls-bar">
+                  <button class="hud-btn cad-cam-btn" data-preset="isometric">
+                    <i data-lucide="box" class="w-3 h-3"></i> Isometric
+                  </button>
+                  <button class="hud-btn cad-cam-btn" data-preset="front">
+                    Front
+                  </button>
+                  <button class="hud-btn cad-cam-btn" data-preset="top">
+                    Top
+                  </button>
+                  <button class="hud-btn cad-cam-btn" data-preset="right">
+                    Right
+                  </button>
+                  <button class="hud-btn cad-cam-btn" data-preset="reset">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset
+                  </button>
+                </div>
+              </div>
+
+              <!-- Top-Right Render Modes & Auto-Rotate -->
+              <div class="viewport-hud top-3 right-3 flex flex-wrap gap-1.5">
+                <div class="viewport-controls-bar">
+                  <button id="btn-auto-rotate" class="hud-btn" title="Toggle Auto-Spin">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                  </button>
+                  <button class="hud-btn cad-render-mode-btn active" data-mode="shaded">
+                    Shaded
+                  </button>
+                  <button class="hud-btn cad-render-mode-btn" data-mode="edges">
+                    Edges
+                  </button>
+                  <button class="hud-btn cad-render-mode-btn" data-mode="wireframe">
+                    Wireframe
+                  </button>
+                  <button class="hud-btn cad-render-mode-btn" data-mode="xray">
+                    X-Ray
+                  </button>
+                </div>
+              </div>
+
+              <!-- Bottom-Left Navigation Hints -->
+              <div class="viewport-hud bottom-3 left-3 flex items-center gap-2">
+                <div class="coord-badge">
+                  <span>L-Click: Orbit | R-Click: Pan | Scroll: Zoom</span>
+                </div>
+              </div>
+
+              <!-- Bottom-Right CAD Coordinates Overlay -->
+              <div class="viewport-hud bottom-3 right-3 flex items-center gap-2">
+                <div class="coord-badge text-sky-400">
+                  <span class="font-mono">SOLIDWORKS CSG KERNEL</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Viewport Settings Footer Bar -->
+            <div class="cad-card p-3 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between text-xs gap-3">
+              <div class="flex items-center gap-4">
+                <!-- Material Picker -->
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 font-medium">Material:</span>
+                  <select id="select-cad-material" class="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-slate-200 text-xs font-mono">
+                    <option value="steel">Carbon Steel AISI 1020</option>
+                    <option value="aluminum">Aluminum 6061-T6</option>
+                    <option value="brass">Brass C360</option>
+                    <option value="titanium">Titanium Ti-6Al-4V</option>
+                  </select>
+                </div>
+
+                <!-- Toggles -->
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input type="checkbox" id="toggle-grid" checked class="rounded border-slate-700 text-sky-500 focus:ring-0">
+                  <span>Grid</span>
+                </label>
+
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input type="checkbox" id="toggle-bbox" class="rounded border-slate-700 text-sky-500 focus:ring-0">
+                  <span>Bounding Box</span>
+                </label>
+              </div>
+
+              <div class="flex items-center gap-2 font-mono text-[11px] text-slate-400">
+                <span class="status-dot online"></span>
+                <span>Real-time WebGL Shading</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Model Information & Specs Column -->
+          <div class="lg:col-span-4 space-y-4">
+            
+            <div class="cad-card p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+                  <i data-lucide="info" class="w-4 h-4 text-sky-400"></i>
+                  Model Information
+                </h3>
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  Generated
+                </span>
+              </div>
+
+              <!-- Information Grid -->
+              <div class="space-y-2.5 text-xs font-mono">
+                <div class="flex justify-between py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">Product Name:</span>
+                  <span id="spec-product-type" class="text-white font-semibold">Spur Gear</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">File Format:</span>
+                  <span id="spec-file-format" class="text-sky-300">SolidWorks Part (.SLDPRT)</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">Features Count:</span>
+                  <span id="spec-features-count" class="text-slate-200">5 Features</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">Generation Time:</span>
+                  <span class="text-emerald-400">1.42 seconds</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">Estimated Mass:</span>
+                  <span id="spec-mass-est" class="text-amber-300">1.24 kg (Steel)</span>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="text-slate-400">Volume:</span>
+                  <span id="spec-volume" class="text-slate-200">158.4 cm³</span>
+                </div>
+              </div>
+
+              <!-- SolidWorks Feature Tree Section -->
+              <div class="pt-3 border-t border-slate-800">
+                <span class="text-[11px] font-mono uppercase text-slate-400 block mb-2 font-medium">SolidWorks Feature Tree:</span>
+                <div id="solidworks-feature-tree-list" class="space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 max-h-40 overflow-y-auto">
+                  <!-- Populated by updateModelSpecsDisplay() -->
+                </div>
+              </div>
+
+              <!-- Quick Action Buttons -->
+              <div class="space-y-2 pt-2">
+                <button onclick="UI.triggerGenerationWorkflow()" class="w-full btn-cad-primary py-2.5 rounded-xl text-xs font-semibold">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                  <span>Re-Generate in SolidWorks</span>
+                </button>
+                <button onclick="UI.switchView('solidworks')" class="w-full btn-cad-secondary py-2 rounded-xl text-xs font-medium">
+                  <i data-lucide="terminal" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Inspect SolidWorks COM Code</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 5: SOLIDWORKS INTEGRATION PANEL
+           ======================================================== -->
+      <section id="view-solidworks" class="view-section hidden space-y-6">
+        
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-cyan-400"></i>
+              SolidWorks API Integration Studio
+            </h2>
+            <p class="text-xs text-slate-400">Live COM Automation dispatcher, document inspector, and macro generator</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-open-solidworks" class="btn-cad-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Open in SolidWorks</span>
+            </button>
+            <button id="btn-save-solidworks" class="btn-cad-secondary px-3.5 py-1.5 rounded-lg text-xs font-semibold">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              <span>Save Model</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SolidWorks Live Status Strip -->
+        <div class="cad-card p-4 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="text-[11px] font-mono text-slate-400 uppercase">SolidWorks Status</div>
+              <div class="text-sm font-semibold text-emerald-400">Connected (Simulated COM)</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
+              <i data-lucide="cpu" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="text-[11px] font-mono text-slate-400 uppercase">API Status</div>
+              <div class="text-sm font-semibold text-sky-400">Ready (SldWorks.Application)</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+              <i data-lucide="file-code" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="text-[11px] font-mono text-slate-400 uppercase">Active Document</div>
+              <div class="text-sm font-semibold text-slate-200">Gear_20T_100mm.SLDPRT</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Macro / Automation Code Studio -->
+        <div class="cad-card rounded-2xl border border-slate-800 overflow-hidden">
+          <div class="bg-slate-900/90 px-5 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <button class="sw-code-tab active px-3 py-1.5 text-xs font-mono font-medium rounded-lg border border-sky-400 text-sky-400 bg-sky-500/10 transition-all" data-lang="python">
+                Python (win32com.client)
+              </button>
+              <button class="sw-code-tab px-3 py-1.5 text-xs font-mono font-medium rounded-lg border border-transparent text-slate-400 hover:text-white transition-all" data-lang="vba">
+                SolidWorks VBA Macro (.swp)
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button id="btn-copy-sw-code" class="btn-cad-secondary px-3 py-1.5 rounded-lg text-xs font-mono">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Copy Script</span>
+              </button>
+              <button id="btn-download-sw-code" class="btn-cad-primary px-3 py-1.5 rounded-lg text-xs font-mono">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Download Script</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="p-4 bg-[#050811]">
+            <pre id="sw-code-display" class="font-mono text-xs text-sky-300 max-h-[460px] overflow-y-auto leading-relaxed select-all">
+              <!-- Code populated by SolidWorksCodeGen -->
+            </pre>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 6: GENERATION HISTORY
+           ======================================================== -->
+      <section id="view-history" class="view-section hidden space-y-6">
+        
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <i data-lucide="history" class="w-5 h-5 text-sky-400"></i>
+              Model Generation History
+            </h2>
+            <p class="text-xs text-slate-400">Inspect, reload, and export previously synthesized CAD components</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-export-history-csv" class="btn-cad-secondary px-3.5 py-1.5 rounded-lg text-xs font-semibold">
+              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="cad-card rounded-2xl border border-slate-800 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="bg-slate-900/80 border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400">
+                  <th class="py-3 px-4">Model Name</th>
+                  <th class="py-3 px-4">Type</th>
+                  <th class="py-3 px-4">Dimensions</th>
+                  <th class="py-3 px-4">Date & Time</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body" class="divide-y divide-slate-800/60 font-mono text-xs">
+                <!-- Dynamically populated by UI.renderHistoryTable() -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 7: PROJECT ARCHITECTURE & COLLEGE VIVA DEFENSE
+           ======================================================== -->
+      <section id="view-architecture" class="view-section hidden space-y-6">
+        
+        <div>
+          <span class="px-2.5 py-0.5 rounded text-[11px] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 mb-2 inline-block">
+            Engineering System Architecture & College Viva Defense
+          </span>
+          <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <i data-lucide="git-branch" class="w-5 h-5 text-indigo-400"></i>
+            End-to-End System Pipeline
+          </h2>
+          <p class="text-xs text-slate-400">How the AI CAD Generator bridges natural requirements into SolidWorks parametric automation</p>
+        </div>
+
+        <!-- 6-Stage Interactive Visual Flowchart -->
+        <div class="space-y-4">
+          
+          <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+            
+            <!-- Stage 1 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-mono font-bold mb-2">1</div>
+              <h4 class="font-semibold text-xs text-white mb-1">User Input</h4>
+              <p class="text-[11px] text-slate-400">Plain English or UI parametric form</p>
+            </div>
+
+            <!-- Stage 2 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-mono font-bold mb-2">2</div>
+              <h4 class="font-semibold text-xs text-white mb-1">AI / NLP</h4>
+              <p class="text-[11px] text-slate-400">Tokenization & intent classification</p>
+            </div>
+
+            <!-- Stage 3 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-mono font-bold mb-2">3</div>
+              <h4 class="font-semibold text-xs text-white mb-1">Param Extraction</h4>
+              <p class="text-[11px] text-slate-400">DIN/ISO dimensional validation</p>
+            </div>
+
+            <!-- Stage 4 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono font-bold mb-2">4</div>
+              <h4 class="font-semibold text-xs text-white mb-1">CAD Engine</h4>
+              <p class="text-[11px] text-slate-400">CSG feature tree planning</p>
+            </div>
+
+            <!-- Stage 5 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-mono font-bold mb-2">5</div>
+              <h4 class="font-semibold text-xs text-white mb-1">SolidWorks API</h4>
+              <p class="text-[11px] text-slate-400">COM automation dispatch</p>
+            </div>
+
+            <!-- Stage 6 -->
+            <div class="arch-card">
+              <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-mono font-bold mb-2">6</div>
+              <h4 class="font-semibold text-xs text-white mb-1">3D CAD Model</h4>
+              <p class="text-[11px] text-slate-400">.SLDPRT / .STEP artifact</p>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- College Major Project Documentation & Viva Defense Guide -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+          
+          <!-- Viva Defense Q&A -->
+          <div class="cad-card p-5 rounded-2xl border border-slate-800 space-y-4">
+            <h3 class="font-semibold text-sm text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+              <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i>
+              Key College Viva Voce Defense Questions & Answers
+            </h3>
+
+            <div class="space-y-3 text-xs">
+              <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <strong class="text-sky-300 block mb-1">Q1: How does the system communicate with SolidWorks?</strong>
+                <p class="text-slate-400 leading-relaxed">
+                  SolidWorks provides a Windows COM/ActiveX Type Library. In Python, the <code class="text-sky-300">pywin32</code> (<code class="text-sky-300">win32com.client</code>) module acquires the <code class="text-sky-300">SldWorks.Application</code> dispatch interface to programmatically manipulate sketches, extrusions, cuts, and patterns.
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <strong class="text-sky-300 block mb-1">Q2: Why not replace SolidWorks with an AI neural model like Point-E?</strong>
+                <p class="text-slate-400 leading-relaxed">
+                  Neural point clouds lack engineering parametric features, exact tolerances, sketch constraints, and machinability. Our system acts as an <em>automation layer</em> on top of SolidWorks, ensuring all output parts are 100% parametric, editable in SolidWorks, and manufacturing-ready.
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <strong class="text-sky-300 block mb-1">Q3: How are invalid dimensions prevented?</strong>
+                <p class="text-slate-400 leading-relaxed">
+                  A relational geometric validator runs before dispatch (e.g. checking that Gear Bore &lt; Outer Diameter, Wall Thickness &gt; 0, and Pitch circle diameters align with tooth module formulas).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Technical Feasibility & Literature Abstract -->
+          <div class="cad-card p-5 rounded-2xl border border-slate-800 space-y-4">
+            <h3 class="font-semibold text-sm text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+              <i data-lucide="book-open" class="w-4 h-4 text-emerald-400"></i>
+              Project Abstract & Technical Specifications
+            </h3>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <p>
+                <strong class="text-white">Project Title:</strong> AI-Based Automated CAD Model Generation System Using SolidWorks API
+              </p>
+              <p>
+                <strong class="text-white">Objective:</strong> Eliminate repetitive manual CAD modeling for standardized mechanical components by automating the design-to-CAD pipeline through natural language requirement parsing and API-driven SolidWorks geometry synthesis.
+              </p>
+              <p>
+                <strong class="text-white">Core Modules:</strong>
+              </p>
+              <ul class="list-disc pl-5 space-y-1 text-slate-400 font-mono text-[11px]">
+                <li>Intent Parser & Entity Recognition (NLP / Heuristics)</li>
+                <li>Parametric Rules & Mechanical Constraint Checker</li>
+                <li>CSG SolidWorks COM Dispatcher (<code class="text-sky-400">SldWorks.Application</code>)</li>
+                <li>WebGL Three.js Interactive 3D Inspection Viewer</li>
+                <li>Direct STL / SLDPRT / STEP Exporters</li>
+              </ul>
+              <div class="p-3 rounded-xl bg-sky-950/30 border border-sky-500/20 text-sky-300">
+                <strong>Feasibility Statement:</strong> The Python-to-SolidWorks COM interface is officially supported across Windows 10/11 x64 systems with standard SolidWorks licenses.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================================
+           VIEW 8: SETTINGS & CONFIGURATION
+           ======================================================== -->
+      <section id="view-settings" class="view-section hidden space-y-6">
+        
+        <div>
+          <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <i data-lucide="settings" class="w-5 h-5 text-slate-400"></i>
+            System Configuration & Settings
+          </h2>
+          <p class="text-xs text-slate-400">Configure COM simulation parameters, telemetry, and audio feedback</p>
+        </div>
+
+        <div class="cad-card p-5 rounded-2xl border border-slate-800 max-w-2xl space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between py-2 border-b border-slate-800">
+              <div>
+                <div class="text-sm font-semibold text-slate-200">SolidWorks API Connection Mode</div>
+                <div class="text-xs text-slate-400">Switch between Live COM dispatch or High-Fidelity Simulation</div>
+              </div>
+              <span class="px-2.5 py-1 rounded text-xs font-mono bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                Simulated COM Port
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between py-2 border-b border-slate-800">
+              <div>
+                <div class="text-sm font-semibold text-slate-200">Audio Feedback (Web Audio API)</div>
+                <div class="text-xs text-slate-400">Sound effects for clicks, parameter extraction, and generation completion</div>
+              </div>
+              <input type="checkbox" checked onchange="state.audioEnabled = this.checked;" class="rounded border-slate-700 text-sky-500 focus:ring-0">
+            </div>
+
+            <div class="flex items-center justify-between py-2 border-b border-slate-800">
+              <div>
+                <div class="text-sm font-semibold text-slate-200">Default Engineering Units</div>
+                <div class="text-xs text-slate-400">Standard system unit for new mechanical parts</div>
+              </div>
+              <span class="font-mono text-xs text-amber-400 uppercase">MMGS (mm, gram, sec)</span>
+            </div>
+
+            <div class="flex items-center justify-between py-2">
+              <div>
+                <div class="text-sm font-semibold text-slate-200">Local Cache Storage</div>
+                <div class="text-xs text-slate-400">Reset stored generation history and clear local parameters</div>
+              </div>
+              <button onclick="localStorage.removeItem('ai_cad_generator_history'); state.history=[...INITIAL_HISTORY]; UI.renderHistoryTable(); UI.showToast('Cache reset successfully');" class="btn-cad-secondary px-3 py-1.5 rounded-lg text-xs">
+                Reset Cache
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ========================================================
+       ANIMATED GENERATION PROGRESS MODAL
+       ======================================================== -->
+  <div id="generation-modal" class="modal-overlay hidden">
+    <div class="cad-card p-6 rounded-2xl max-w-xl w-full border border-sky-400/40 bg-[#0b1222] shadow-2xl space-y-5">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <i data-lucide="cpu" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">SolidWorks CAD Generation Pipeline</h3>
+            <span id="gen-status-message" class="text-xs font-mono text-sky-400">Initializing COM dispatch...</span>
+          </div>
+        </div>
+        <div class="text-xs font-mono text-slate-400">Thread: 0x4E12</div>
+      </div>
+
+      <!-- Animated Progress Bar -->
+      <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+        <div id="gen-progress-bar" class="bg-gradient-to-r from-sky-500 to-cyan-300 h-full w-0 transition-all duration-300"></div>
+      </div>
+
+      <!-- 5-Step Pipeline Progress Indicator -->
+      <div class="space-y-2 text-xs">
+        <div id="step-1" class="pipeline-step">
+          <div class="step-icon">1</div>
+          <div>
+            <div class="font-medium text-slate-200">Analyzing Input</div>
+            <div class="text-[11px] text-slate-400">Parsing dimensional tokens and manufacturing intent</div>
+          </div>
+        </div>
+
+        <div id="step-2" class="pipeline-step">
+          <div class="step-icon">2</div>
+          <div>
+            <div class="font-medium text-slate-200">Extracting Parameters</div>
+            <div class="text-[11px] text-slate-400">Constraint verification and geometric boundary check</div>
+          </div>
+        </div>
+
+        <div id="step-3" class="pipeline-step">
+          <div class="step-icon">3</div>
+          <div>
+            <div class="font-medium text-slate-200">Creating CAD Geometry</div>
+            <div class="text-[11px] text-slate-400">Synthesizing CSG Feature Tree primitives in memory</div>
+          </div>
+        </div>
+
+        <div id="step-4" class="pipeline-step">
+          <div class="step-icon">4</div>
+          <div>
+            <div class="font-medium text-slate-200">Connecting to SolidWorks</div>
+            <div class="text-[11px] text-slate-400">Acquiring SldWorks.Application COM dispatch handle</div>
+          </div>
+        </div>
+
+        <div id="step-5" class="pipeline-step">
+          <div class="step-icon">5</div>
+          <div>
+            <div class="font-medium text-slate-200">Generating 3D Model</div>
+            <div class="text-[11px] text-slate-400">Dispatching Extrude, Revolve, Cut, and Pattern API calls</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live SolidWorks API Terminal Output Console -->
+      <div class="api-terminal" id="gen-api-terminal">
+        <!-- Live streamed lines -->
+      </div>
+
+      <!-- Success Banner (Revealed upon completion) -->
+      <div id="gen-success-banner" class="hidden p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="check-circle-2" class="w-5 h-5 shrink-0"></i>
+          <div>
+            <div class="font-bold text-xs text-white">3D Model Generated Successfully</div>
+            <div class="text-[11px] text-emerald-300 font-mono">Document verified and ready in 3D viewport</div>
+          </div>
+        </div>
+        <button id="btn-close-gen-modal" class="btn-cad-primary px-3 py-1.5 rounded-lg text-xs font-semibold">
+          <span>View 3D Model</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Logic Scripts -->
+  <script src="cad3d.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
